@@ -38,6 +38,7 @@
 
 -behaviour(gen_server).
 
+-include("gen_tcp_listener.hrl").
 
 %% API
 -export([start_link/3, start_link/4]).
@@ -50,9 +51,6 @@
          handle_info/2,
          terminate/2,
          code_change/3]).
-
-
--include("gen_tcp_listener.hrl").
 
 
 
@@ -146,31 +144,16 @@ terminate(_Reason, State) ->
 
 
 %% ----------------------------------------------------------------------------
--spec handle_cast({accept, ClientSocket :: port()},
-                  State :: record(listener_state)) -> {noreply, term()};
-      ({shutdown, Reason :: term()},
-       State :: record(listener_state)) -> ok.
+-spec handle_cast({shutdown, Reason :: term()},
+                  State :: record(listener_state)) -> ok.
 %% @doc
 %% Handles asynchronous calls to gen_tcp_listener.
 %%
-%% Messages handled are accept and shutdown.
+%% Messages handled are shutdown.
 %% @end
 %% ----------------------------------------------------------------------------
-handle_cast({accept, ClientSocket},
-            State = #listener_state{module = Module,
-                                    server_ref = ServerRef}) ->
-    ?DEBUGP("handle_cast/2, accept~n"),
-    {ok, Pid} = gen_tcp_listener_sup:start_client(ServerRef, ClientSocket),
-    {hum, ok} = {hum, gen_tcp:controlling_process(ClientSocket, Pid)},
-    Module:handle_accept(Pid, ClientSocket),
-    %gen_tcp_acceptor:accept(Pid, ClientSocket),
-    {noreply, State};
-
 handle_cast({shutdown, Reason}, State) ->
-    gen_server:terminate({shutdown, Reason}, State);
-
-handle_cast(Msg, State = #listener_state{module = Module}) ->
-    Module:handle_cast(Msg, State).
+    gen_server:terminate({shutdown, Reason}, State).
 
 
 
@@ -183,8 +166,7 @@ handle_cast(Msg, State = #listener_state{module = Module}) ->
 %% @end
 %% ----------------------------------------------------------------------------
 handle_info({inet_async, ListenSocket, Ref, {ok, ClientSocket}},
-            State = #listener_state{module     = Module,
-                                    listener   = ListenSocket,
+            State = #listener_state{listener   = ListenSocket,
                                     acceptor   = Ref,
                                     server_ref = ServerRef}) ->
     ?DEBUGP("inet_async~n"),
@@ -195,11 +177,9 @@ handle_info({inet_async, ListenSocket, Ref, {ok, ClientSocket}},
         end,
 
         ?DEBUGP("handle (hand over) incoming connection~n"),
-        %gen_tcp_listener:accept(self(), ClientSocket),
-        %gen_server:cast(self(), {accept, ClientSocket}),
-        %ok = gen_tcp:controlling_process(ClientSocket, self()),
-        {ok, Pid} = gen_tcp_listener_sup:start_client(ServerRef, ClientSocket),
-        Module:handle_accept(self(), ClientSocket),
+        {ok, Pid} =
+            gen_tcp_listener_sup:start_acceptor(ServerRef),
+        gen_tcp_acceptor:accept(Pid, ClientSocket),
         ok = gen_tcp:controlling_process(ClientSocket, Pid),
         ?DEBUGP("new async acceptor~n"),
 

@@ -1,52 +1,37 @@
 -module(echo_server).
 
-%-behaviour(gen_tcp_listener).
--behaviour(gen_tcp_acceptor).
--behaviour(gen_server).
 -behaviour(application).
+-behaviour(gen_tcp_acceptor).
 
+-include("../include/gen_tcp_acceptor.hrl").
 -include("../src/gen_tcp_listener.hrl").
 
--export([start/2, stop/1]). % application exports
--export([start_link/0]).
--export([init/1, handle_accept/2]).
--export([handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
+% application
+-export([start/2, stop/1]).
+% gen_tcp_acceptor
+-export([start_link/0, init/1, handle_accept/2]).
 
+
+%% APPLICATION
 start(_, _) ->
     gen_tcp_listener:start_link({local, echo_listener}, ?MODULE, [], []).
 
 stop(_) ->
     ok.
 
+
+%% GEN_TCP_ACCEPTOR
 start_link() ->
     ?DEBUGP("start_link/0~n"),
-    %{ok, self()}.
-    gen_server:start_link(?MODULE, [], []).
+    {ok, Pid} = gen_fsm:start_link(echo_fsm, [], []),
+    gen_tcp_acceptor:start_link(?MODULE, [{handler, Pid}], []).
 
-init(_Args) ->
-    process_flag(trap_exit, true),
-    ?DEBUGP("init/1~n"),
-    {ok, []}.
+init(Args) ->
+    HandlerPid = proplists:get_value(handler, Args),
+    {ok, #acceptor_state{handler = HandlerPid}}.
 
-handle_accept(_Pid, Socket) ->
+handle_accept(Socket, State = #acceptor_state{handler = Pid}) ->
     ?DEBUGP("accepted~n"),
-    Pid = spawn(fun() -> echo(Socket) end),
-    ok = gen_tcp:controlling_process(Socket, Pid).
-
-echo(Socket) ->
-    ?DEBUGP("echo...~n"),
-    ok = inet:setopts(Socket, [{active, once}, {packet, raw}, binary]),
-    receive
-        {tcp, Socket, Bin} ->
-            gen_tcp:send(Socket, Bin),
-            echo(Socket);
-        {tcp_closed, Socket} ->
-            gen_tcp:close(Socket)
-    end.
-
-handle_cast(_,_) -> ok.
-handle_call(_,_,_) -> ok.
-handle_info(_,_) -> ok.
-terminate(_,_) -> ok.
-code_change(_,_,_) -> ok.
-
+    gen_fsm:send_event(Pid, {socket_ready, Socket}),
+    gen_tcp:controlling_process(Socket, Pid),
+    {noreply, State}.

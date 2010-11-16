@@ -34,14 +34,13 @@
 
 -behaviour(supervisor).
 
-
 -include("gen_tcp_listener.hrl").
 
 %% supervisor export
 -export([init/1]).
 
 %% external exports
--export([start_client/2]).
+-export([start_acceptor/1]).
 
 
 %% types
@@ -85,7 +84,7 @@ init(Args) ->
 %% @end
 %% ----------------------------------------------------------------------------
 init(gen_tcp_listener_sup, Args) ->
-    ?DEBUGP("init/2 gen_tcp_listener_sup~n"),
+    ?DEBUGP("init/2~n"),
 
     %% build gen_tcp_listener start arguments
     {Registry, SuppliedName} =
@@ -149,17 +148,13 @@ init(gen_tcp_listener_connection_sup, Args) ->
 
 %% ----------------------------------------------------------------------------
 %% See top of file for types
--spec start_client(Args :: args(), ClientSocket :: port()) ->
-          Result :: {ok, child()} | error().
+-spec start_acceptor(Args :: args()) -> Result :: {ok, child()} | error().
 %% @doc
 %% @end
 %% ----------------------------------------------------------------------------
-start_client({_Registry, Name}, ClientSocket) ->
+start_acceptor({_Registry, Name}) ->
     ?DEBUGP("start_client/1~n"),
     ConnectionSupName = list_to_atom("gen_tcp_listener_" ++
                                      atom_to_list(Name) ++
                                      "_connection_sup"),
-    {ok, Pid} = supervisor:start_child(ConnectionSupName, []),
-    ?DEBUGP("~n~n~n~p~n~n~n", [Pid]),
-    %ok = gen_tcp:controlling_process(ClientSocket, Pid),
-    {ok, Pid}.
+    {ok, _Pid} = supervisor:start_child(ConnectionSupName, []).
