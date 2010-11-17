@@ -1,30 +1,33 @@
 %% -----------------------------------------------------------------------------
 %% Copyright @ 2010 Per Andersson
 %%
-%% gen_tcp_listener is free software: you can redistribute it and/or
-%% modify it under the terms of the GNU General Public License as published by
+%% This file is part of tcp_listener.
+%%
+%% tcp_listener is free software: you can redistribute it and/or modify
+%% it under the terms of the GNU General Public License as published by
 %% the Free Software Foundation, either version 3 of the License, or (at your
 %% option) any later version.
 %%
-%% gen_tcp_listener is distributed in the hope that it will be useful,
+%% tcp_listener is distributed in the hope that it will be useful,
 %% but WITHOUT ANY WARRANTY; without even the implied warranty of
 %% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 %% GNU General Public License for more details.
 %%
 %% You should have received a copy of the GNU General Public License
-%% along with gen_tcp_listener.  If not, see
+%% along with tcp_listener.  If not, see
 %% <http://www.gnu.org/licenses/>.
 %% -----------------------------------------------------------------------------
 %%
 %% @author Per Andersson <avtobiff@gmail.com>
 %% @doc
-%% Generic TCP Listener
+%% TCP Listener
 %%
-%% This is a behaviour that implements an asynchronous TCP listener server.
-%% The server implementation then only needs to implement init/1 and
-%% handle_accept/2.
+%% This software implements an asynchronous TCP listener.
 %%
-%% See gen_server(3), gen_tcp(3) for more information.
+%% The server implementation then only needs to implement the gen_tcp_acceptor
+%% behaviour.
+%%
+%% See gen_tcp_acceptor, gen_server(3), and gen_tcp(3) for more information.
 %%
 %% Inspired by
 %% http://www.trapexit.org/Building_a_Non-blocking_TCP_server_using_OTP_principles
@@ -33,16 +36,15 @@
 %% @end
 %%
 %% -----------------------------------------------------------------------------
--module(gen_tcp_listener).
+-module(tcp_listener).
 -author('Per Andersson <avtobiff@gmail.com>').
 
 -behaviour(gen_server).
 
--include("gen_tcp_listener.hrl").
+-include("tcp_listener.hrl").
 
 %% API
 -export([start_link/3, start_link/4]).
--export([behaviour_info/1]).
 
 %% gen_server exports
 -export([init/1,
@@ -59,27 +61,12 @@
 %% =============================================================================
 
 %% -----------------------------------------------------------------------------
--spec behaviour_info(atom()) -> undefined | [{atom(), arity()}].
-%% @doc
-%% Behaviour exports.
-%% @end
-%% -----------------------------------------------------------------------------
-behaviour_info(callbacks) ->
-    [{start_link, 0},
-     %{init, 1},
-     {handle_accept, 1}];
-behaviour_info(_) ->
-    undefined.
-
-
-
-%% -----------------------------------------------------------------------------
 -spec start_link(Mod :: atom(), Args :: args(),
                  Options :: list(term())) -> {ok, pid()}.
 -spec start_link(Name :: atom(), Mod :: atom(), Args :: args(),
                  Options :: list(term())) -> {ok, pid()}.
 %% @doc
-%% Starts the gen_tcp_listener as part of a supervisor tree.
+%% Starts the tcp_listener as part of a supervisor tree.
 %%
 %% Parses options from Args and uses defaults if an argument is not supplied.
 %% @end
@@ -88,11 +75,10 @@ start_link(Mod, Args, Opts) ->
     start_link({local, Mod}, Mod, Args, Opts).
 
 start_link(Name, Mod, Args, Opts) ->
-    ?DEBUGP("~p:start_link/4~n", [?MODULE]),
-    %gen_server:start_link(Name, Mode, Args, Opts).
-    supervisor:start_link(Name, gen_tcp_listener_sup,
-                          [{'$gen_tcp_listener_server_ref', Name},
-                           {'$gen_tcp_listener_opts', Opts},
+    ?DEBUGP("start_link/4~n"),
+    supervisor:start_link(Name, tcp_listener_sup,
+                          [{'$tcp_listener_server_ref', Name},
+                           {'$tcp_listener_opts', Opts},
                            {module, Mod}|Args]).
 
 
@@ -103,28 +89,30 @@ start_link(Name, Mod, Args, Opts) ->
 
 %% -----------------------------------------------------------------------------
 -spec init(Args :: args()) -> {ok, record(listener_state)}.
+%% @private
 %% @doc
 %% Creates listen socket and starts an asynchronous accept.
 %% @end
 %% -----------------------------------------------------------------------------
 init(Args) ->
     process_flag(trap_exit, true),
-    ?DEBUGP("~p:init/1~n", [?MODULE]),
+    ?DEBUGP("init/1~n"),
 
     %% arguments
     Port      = proplists:get_value(port, Args, ?DEFAULT_PORT),
     TcpOpts   = proplists:get_value(tcp_opts, Args, ?TCP_OPTS),
     Module    = proplists:get_value(module, Args),
-    ServerRef = proplists:get_value('$gen_tcp_listener_server_ref', Args),
+    ServerRef = proplists:get_value('$tcp_listener_server_ref', Args),
+
+    %% create listener state
+    State0 = #listener_state{server_ref = ServerRef,
+                             module     = Module},
 
     %% fire off the asynchronous acceptor
     case gen_tcp:listen(Port, TcpOpts) of
         {ok, ListenSocket} ->
-            {ok, Ref} = prim_inet:async_accept(ListenSocket, -1),
-            {ok, #listener_state{listener   = ListenSocket,
-                                 acceptor   = Ref,
-                                 server_ref = ServerRef,
-                                 module     = Module}};
+            State1 = State0#listener_state{listener = ListenSocket},
+            {ok, create_async_acceptor(State1)};
         {error, Reason} ->
             {stop, Reason}
     end.
@@ -133,21 +121,34 @@ init(Args) ->
 
 %% ----------------------------------------------------------------------------
 -spec terminate(_, record(listener_state)) -> ok.
+%% @private
 %% @doc
 %% Shutdown the server, close the listening socket.
 %% @end
 %% ----------------------------------------------------------------------------
-terminate(_Reason, State) ->
-    gen_tcp:close(State#listener_state.listener),
+terminate(_Reason, #listener_state{listener = ListenSocket}) ->
+    gen_tcp:close(ListenSocket),
     ok.
 
 
 
 %% ----------------------------------------------------------------------------
+-spec code_change(_, State :: record(listener_state), _) ->
+          Result :: {ok, record(listener_state)}.
+%% @private
+%% @doc
+%% Transforms servers internal state upon code change.
+%% @end
+%% ----------------------------------------------------------------------------
+code_change(_OldVsn, State, _Extra) -> {ok, State}.
+
+
+%% ----------------------------------------------------------------------------
 -spec handle_cast({shutdown, Reason :: term()},
                   State :: record(listener_state)) -> ok.
+%% @private
 %% @doc
-%% Handles asynchronous calls to gen_tcp_listener.
+%% Handles asynchronous calls to tcp_listener.
 %%
 %% Messages handled are shutdown.
 %% @end
@@ -159,7 +160,18 @@ handle_cast({shutdown, Reason}, State) ->
 
 %% ----------------------------------------------------------------------------
 -spec handle_info({inet_async, ListenSocket :: port(), Ref :: port(),
-                  {ok, ClientSocket :: port()}}, record(listener_state)) -> ok.
+                   {ok, ClientSocket :: port()}},
+                  State :: record(listener_state)) ->
+          Result :: {noreply, record(listener_state)};
+
+      ({inet_async, ListenSocket :: port(), Ref :: port(), Error :: term()},
+                  State :: record(listener_state)) ->
+          Result :: {stop, Error :: term(), State :: record(listener_state)};
+
+      (Info :: term(), State :: record(listener_state)) ->
+          Result :: {stop, {unknown_info, Info :: term()},
+                     State :: record(listener_state)}.
+%% @private
 %% @doc
 %% Spawns a new connection handler (server) for accepted asynchronous
 %% connection.
@@ -177,21 +189,14 @@ handle_info({inet_async, ListenSocket, Ref, {ok, ClientSocket}},
         end,
 
         ?DEBUGP("handle (hand over) incoming connection~n"),
-        {ok, Pid} =
-            gen_tcp_listener_sup:start_acceptor(ServerRef),
+        {ok, Pid} = tcp_listener_sup:start_acceptor(ServerRef),
         gen_tcp_acceptor:accept(Pid, ClientSocket),
         ok = gen_tcp:controlling_process(ClientSocket, Pid),
-        ?DEBUGP("new async acceptor~n"),
 
-        case prim_inet:async_accept(ListenSocket, -1) of
-            {ok, NewRef}    -> ok;
-            {error, NewRef} -> exit({async_accept, inet:format_error(NewRef)})
-        end,
-
-        {noreply, State#listener_state{acceptor = NewRef}}
-    catch exit:Why ->
-        error_logger:error_msg("Error in async accept: ~p.~n", [Why]),
-        {stop, Why, State}
+        {noreply, create_async_acceptor(State)}
+    catch exit:Error ->
+        error_logger:error_msg("Error in async accept: ~p.~n", [Error]),
+        {stop, Error, State}
     end;
 
 handle_info({inet_async, ListenSocket, Ref, Error},
@@ -199,20 +204,50 @@ handle_info({inet_async, ListenSocket, Ref, Error},
     error_logger:error_msg("Error in socket acceptor: ~p.~n", [Error]),
     {stop, Error, State};
 
-handle_info(_Info, State) ->
-    {noreply, State}.
+handle_info(Info, State) ->
+    {stop, {unknown_info, Info}, State}.
+
+
+%% ----------------------------------------------------------------------------
+-spec handle_call(Request :: term(), _, State :: record(listener_state)) ->
+          Result :: {stop,
+                     {unknown_call, Request :: term()},
+                     State :: record(listener_state)}.
+%% @private
+%% @doc
+%% Unused gen_server function for handling synchronous calls.
+%% @end
+%% ----------------------------------------------------------------------------
+handle_call(Request, _From, State) -> {stop, {unknown_call, Request}, State}.
 
 
 
 %% ----------------------------------------------------------------------------
-%%
 %% INTERNAL
-%%
 %% ----------------------------------------------------------------------------
+
+%% ----------------------------------------------------------------------------
+-spec create_async_acceptor(State :: record(listener_state)) ->
+          Result :: record(listener_state).
+%% @private
+%% @doc
+%% Create asynchrounous acceptor.
+%% @end
+%% ----------------------------------------------------------------------------
+create_async_acceptor(State = #listener_state{listener = ListenSocket}) ->
+    ?DEBUGP("new async acceptor~n"),
+    Ref =
+        case prim_inet:async_accept(ListenSocket, -1) of
+            {ok, NewRef}    -> NewRef;
+            {error, NewRef} -> exit({async_accept, inet:format_error(NewRef)})
+        end,
+    State#listener_state{acceptor = Ref}.
+
 
 %% ----------------------------------------------------------------------------
 -spec transfer_sockopt(ListenSocket :: port(), ClientSocket :: port()) ->
     ok | term().
+%% @private
 %% @doc
 %% Transfer socket options from listen socket to client socket.
 %% @end
@@ -233,12 +268,3 @@ transfer_sockopt(ListenSocket, ClientSocket) ->
             gen_tcp:close(ClientSocket),
             Error
     end.
-
-
-%% ----------------------------------------------------------------------------
-%%
-%% UNUSED GEN_SERVER EXPORTS
-%%
-%% ----------------------------------------------------------------------------
-handle_call(Request, _From, State) -> {stop, {unknown_call, Request}, State}.
-code_change(_OldVsn, State, _Extra) -> {ok, State}.

@@ -8,7 +8,7 @@ build:
 	erl -make
 
 clean:
-	rm -rf $(BEAMFILES)
+	rm -f ebin/*
 
 dialyzer:
 	dialyzer -c $(BEAMFILES)

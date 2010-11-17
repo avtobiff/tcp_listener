@@ -2,8 +2,7 @@
 
 -behaviour(gen_fsm).
 
--include("../include/gen_tcp_acceptor.hrl").
--include("../src/gen_tcp_listener.hrl").
+-include("echo_common.hrl").
 
 % gen_fsm
 -export([init/1, code_change/4, terminate/3,
@@ -19,7 +18,7 @@
 %% GEN_FSM
 init(_) ->
     process_flag(trap_exit, true),
-    ?DEBUGP("init/1~n"),
+    ?PRINT("init/1~n"),
     {ok, 'WAIT_FOR_SOCKET', #state_data{}}.
 
 terminate(_, _, StateData = #state_data{socket = Socket}) ->
@@ -47,7 +46,9 @@ handle_info(_, StateName, StateData) -> {noreply, StateName, StateData}.
 
 %% STATES
 'WAIT_FOR_SOCKET'({socket_ready, Socket}, StateData) when is_port(Socket) ->
-    ?DEBUGP("WAIT_FOR_SOCKET/2...~n"),
+    ?PRINT("WAIT_FOR_SOCKET/2...~n"),
+    % set socket options: flow control, enable forwarding of next
+    % TCP packet; receive raw packets as binaries
     ok = inet:setopts(Socket, [{active, once}, {packet, raw}, binary]),
     {next_state,
      'WAIT_FOR_DATA', StateData#state_data{socket = Socket},
@@ -58,13 +59,15 @@ handle_info(_, StateName, StateData) -> {noreply, StateName, StateData}.
 
 
 'WAIT_FOR_DATA'({data, Bin}, StateData = #state_data{socket = Socket}) ->
-    ?DEBUGP("WAIT_FOR_DATA/2 echo data~n"),
+    ?PRINT("WAIT_FOR_DATA/2 echo data~n"),
+    % flow control, enable forwarding of next TCP packet
+    ok = inet:setopts(Socket, [{active, once}]),
     % echo data
     gen_tcp:send(Socket, Bin),
     {next_state, 'WAIT_FOR_DATA', StateData, ?TIMEOUT};
 
 'WAIT_FOR_DATA'(timeout, StateData) ->
-    ?DEBUGP("WAIT_FOR_DATA/2 timeout~n"),
+    ?PRINT("WAIT_FOR_DATA/2 timeout~n"),
     % client timeout
     {stop, normal, StateData};
 
