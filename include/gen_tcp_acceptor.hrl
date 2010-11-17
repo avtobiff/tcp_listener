@@ -1,1 +1,0 @@
--record(acceptor_state, {handler}). % pid to server

@@ -3,7 +3,6 @@
 -behaviour(application).
 -behaviour(gen_tcp_acceptor).
 
--include("../include/gen_tcp_acceptor.hrl").
 -include("echo_common.hrl").
 
 % application

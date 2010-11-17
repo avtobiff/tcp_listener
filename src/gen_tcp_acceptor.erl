@@ -41,7 +41,6 @@
 -behaviour(gen_server).
 
 -include("tcp_listener.hrl").
--include("../include/gen_tcp_acceptor.hrl").
 
 %% API
 -export([behaviour_info/1]).
