@@ -31,13 +31,12 @@
 
 %% listener types
 -type arg() :: {port, pos_integer()}            % listener port
-             | {tcp_opts, list(term())}         % TCP options
-             | {module, atom()}.                % server callback module
+             | {tcp_opts, list(term())}.        % TCP options
 
 -type args() :: list(arg()).
 
 
 %% supervisor definitions
--define(SUP_MAX_RESTART, 60).
--define(SUP_MAX_TIME,     5).
--define(SUP_TIMEOUT,   2000).
+-define(SUP_MAX_RESTART, 5).
+-define(SUP_MAX_TIME,   60).
+-define(SUP_TIMEOUT,  2000).

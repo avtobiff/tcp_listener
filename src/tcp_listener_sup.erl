@@ -126,7 +126,7 @@ init(tcp_listener_sup, Args) ->
 
 
 init(tcp_listener_connection_sup, Args) ->
-    Module = proplists:get_value(module, Args),
+    Module = proplists:get_value('$tcp_listener_module', Args),
 
     ?DEBUGP("init/2 tcp_listener_connection_sup.~nmodule = ~p~n",
               [Module]),

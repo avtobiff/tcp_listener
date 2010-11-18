@@ -79,7 +79,7 @@ start_link(Name, Mod, Args, Opts) ->
     supervisor:start_link(Name, tcp_listener_sup,
                           [{'$tcp_listener_server_ref', Name},
                            {'$tcp_listener_opts', Opts},
-                           {module, Mod}|Args]).
+                           {'$tcp_listener_module', Mod}|Args]).
 
 
 
@@ -101,7 +101,7 @@ init(Args) ->
     %% arguments
     Port      = proplists:get_value(port, Args, ?DEFAULT_PORT),
     TcpOpts   = proplists:get_value(tcp_opts, Args, ?TCP_OPTS),
-    Module    = proplists:get_value(module, Args),
+    Module    = proplists:get_value('$tcp_listener_module', Args),
     ServerRef = proplists:get_value('$tcp_listener_server_ref', Args),
 
     %% create listener state
