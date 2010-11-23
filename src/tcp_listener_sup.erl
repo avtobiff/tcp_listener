@@ -116,8 +116,8 @@ init(tcp_listener_sup, Args) ->
            {ConnectionSupName,
             {supervisor, start_link,
              [{local, ConnectionSupName}, ?MODULE,
-               [{'$tcp_listener_supervisor',
-                 tcp_listener_connection_sup}|Args]]},
+              [{'$tcp_listener_supervisor',
+                tcp_listener_connection_sup}|Args]]},
             permanent,
             infinity,
             supervisor,
@@ -136,7 +136,7 @@ init(tcp_listener_connection_sup, Args) ->
             temporary,
             ?SUP_TIMEOUT,
             worker,
-            []}
+            [Module]}
           ]}}.
 
 

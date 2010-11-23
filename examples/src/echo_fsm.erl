@@ -4,7 +4,7 @@
 
 -include("echo_common.hrl").
 
-% gen_fsm
+%% gen_fsm
 -export([init/1, code_change/4, terminate/3,
          handle_event/3, handle_info/3, handle_sync_event/4]).
 -export(['WAIT_FOR_SOCKET'/2, 'WAIT_FOR_DATA'/2]).
@@ -41,7 +41,8 @@ handle_info({tcp, Socket, Bin}, StateName,
 handle_info({tcp_closed, Socket}, _, StateData = #state_data{socket = Socket}) ->
     {stop, normal, StateData};
 
-handle_info(_, StateName, StateData) -> {noreply, StateName, StateData}.
+handle_info(Info, StateName, StateData) ->
+    {stop, {StateName, unknown_info, Info}, StateData}.
 
 
 %% STATES
