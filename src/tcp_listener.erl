@@ -99,22 +99,35 @@ init(Args) ->
     ?DEBUGP("init/1~n"),
 
     %% arguments
-    Port      = proplists:get_value(port, Args, ?DEFAULT_PORT),
-    TcpOpts   = proplists:get_value(tcp_opts, Args, ?TCP_OPTS),
-    Module    = proplists:get_value('$tcp_listener_module', Args),
-    ServerRef = proplists:get_value('$tcp_listener_server_ref', Args),
+    Port         = proplists:get_value(port, Args),
+    ListenSocket = proplists:get_value(listen_socket, Args),
+    TcpOpts      = proplists:get_value(tcp_opts, Args, ?TCP_OPTS),
+    Module       = proplists:get_value('$tcp_listener_module', Args),
+    ServerRef    = proplists:get_value('$tcp_listener_server_ref', Args),
 
     %% create listener state
     State0 = #listener_state{server_ref = ServerRef,
                              module     = Module},
 
     %% fire off the asynchronous acceptor
-    case gen_tcp:listen(Port, TcpOpts) of
-        {ok, ListenSocket} ->
+    case {Port, ListenSocket} of
+        %% establish new listen socket
+        {Port, undefined} when is_integer(Port) ->
+            case gen_tcp:listen(Port, TcpOpts) of
+                {ok, NewListenSocket} ->
+                    State1 = State0#listener_state{listener = NewListenSocket},
+                    {ok, create_async_acceptor(State1)};
+                {error, Reason} ->
+                    {stop, Reason}
+            end;
+        %% use supplied listen socket
+        {undefined, ListenSocket} when is_port(ListenSocket) ->
             State1 = State0#listener_state{listener = ListenSocket},
             {ok, create_async_acceptor(State1)};
-        {error, Reason} ->
-            {stop, Reason}
+        {Port, ListenSocket} when is_integer(Port), is_port(ListenSocket) ->
+            {stop, ambiguos_listen_socket};
+        {_, _} ->
+            {stop, bad_listen_socket}
     end.
 
 
