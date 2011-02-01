@@ -1,14 +1,11 @@
 %% DEBUG
--define(DEBUG, false).
+%-define(DEBUG, true).
 -ifdef(DEBUG).
 -define(DEBUGP(Format), error_logger:info_msg("~w ~w (~w) " ++ Format,
                                               [self(), ?MODULE, ?LINE])).
 -define(DEBUGP(Format, Args), error_logger:info_msg("~w ~w (~w) " ++ Format,
                                                     [self(), ?MODULE,
                                                      ?LINE|Args])).
--else.
--define(DEBUGP(_Format), ok).
--define(DEBUGP(_Format, _Args), ok).
 -endif.
 
 
