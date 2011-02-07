@@ -181,6 +181,9 @@ handle_cast({shutdown, Reason}, State) ->
                   State :: record(listener_state)) ->
           Result :: {stop, Error :: term(), State :: record(listener_state)};
 
+      ({'EXIT', _Pid :: pid(), normal}, State :: record(listener_state)) ->
+          Result :: {stop, normal, State :: record(listener_state)};
+
       (Info :: term(), State :: record(listener_state)) ->
           Result :: {stop, {unknown_info, Info :: term()},
                      State :: record(listener_state)}.
@@ -216,6 +219,9 @@ handle_info({inet_async, ListenSocket, Ref, Error},
             State = #listener_state{listener = ListenSocket, acceptor = Ref}) ->
     error_logger:error_msg("Error in socket acceptor: ~p.~n", [Error]),
     {stop, Error, State};
+
+handle_info({'EXIT', _Pid, normal}, State) ->
+    {stop, normal, State};
 
 handle_info(Info, State) ->
     {stop, {unknown_info, Info}, State}.
