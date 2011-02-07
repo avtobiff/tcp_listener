@@ -140,7 +140,7 @@ init(Args) ->
 %% @end
 %% ----------------------------------------------------------------------------
 terminate(_Reason, #listener_state{listener = ListenSocket}) ->
-    gen_tcp:close(ListenSocket),
+    (catch gen_tcp:close(ListenSocket)),
     ok.
 
 
