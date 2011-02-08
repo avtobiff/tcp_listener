@@ -6,6 +6,9 @@
 -define(DEBUGP(Format, Args), error_logger:info_msg("~w ~w (~w) " ++ Format,
                                                     [self(), ?MODULE,
                                                      ?LINE|Args])).
+-else.
+-define(DEBUGP(_Format), true).
+-define(DEBUGP(_Format, _Args), true).
 -endif.
 
 
