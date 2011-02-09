@@ -1,0 +1,66 @@
+TCP_LISTENER
+============
+
+This software, tcp_listener, is a generic non-blocking TCP listener framework.
+The main usage is to write non-blocking TCP servers without needing to think
+about all the small details about non-blocking TCP listeners and acceptors,
+thusly following the "generic practice" often found in Erlang/OTP.
+
+
+
+DEPENDENCIES
+------------
+In order to build and run tcp_listener Erlang/OTP is needed. On Debian based
+systems install erlang by invoking
+
+    sudo aptitude install erlang
+
+For more information see Erlang's home on the internets
+
+    http://erlang.org/
+
+
+
+BUILD AND INSTALL
+-----------------
+To build tcp_listener simply run
+
+    make
+
+Optionally install it to the system Erlang lib directory (/usr/lib/erlang/lib)
+by invoking
+
+    sudo make install
+
+To change PREFIX of installation do (default PREFIX is /usr)
+
+    sudo make PREFIX=/usr/local install
+
+
+
+USAGE
+-----
+The server need only to implement the gen_tcp_acceptor behaviour and then start
+the tcp_listener with this module as argument
+
+    tcp_listener:start_link({local, my_server},    %% Name
+                            my_server_module,      %% Module -- acceptor
+                            [{port, 8000}],        %% Args
+                            [])                    %% Opts -- generally not used
+
+See the edoc in the source code for documentation and also the examples
+directory for examples on how to use tcp_listener.
+
+
+
+INSPIRATION
+-----------
+http://www.trapexit.org/Building_a_Non-blocking_TCP_server_using_OTP_principles
+
+http://github.com/erlware/gen_socket
+
+http://github.com/kaos/gen_listener_tcp
+
+
+
+ -- Per Andersson <avtobiff@gmail.com>  Wed, 09 Feb 2011 10:38:54 +0100
