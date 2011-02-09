@@ -1,0 +1,8 @@
+{application, tcp_listener,
+ [{description, "TCP listener"},
+  {vsn, "0.1.0"},
+  {modules, [tcp_listener,
+             gen_tcp_acceptor]},
+  {registered, []},
+  {applications, [stdlib]},
+  {env, []}]}.
