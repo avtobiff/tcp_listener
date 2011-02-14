@@ -6,6 +6,14 @@ The main usage is to write non-blocking TCP servers without needing to think
 about all the small details about non-blocking TCP listeners and acceptors,
 thusly following the "generic practice" often found in Erlang/OTP.
 
+Source tracking is available at
+
+    http://gitorious.org/avtobiff/tcp_listener
+
+To clone the central developing repository invoke
+
+    git clone git://gitorious.org/avtobiff/tcp_listener.git
+
 
 
 DEPENDENCIES
@@ -63,4 +71,4 @@ http://github.com/kaos/gen_listener_tcp
 
 
 
- -- Per Andersson <avtobiff@gmail.com>  Wed, 09 Feb 2011 10:38:54 +0100
+ -- Per Andersson <avtobiff@gmail.com>  Mon, 14 Feb 2011 10:19:39 +0100
