@@ -10,7 +10,7 @@ Source tracking is available at
 
     http://gitorious.org/avtobiff/tcp_listener
 
-To clone the central developing repository invoke
+To clone the main developing repository invoke
 
     git clone git://gitorious.org/avtobiff/tcp_listener.git
 
