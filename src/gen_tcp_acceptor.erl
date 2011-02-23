@@ -1,5 +1,5 @@
 %% -----------------------------------------------------------------------------
-%% Copyright @ 2010 Per Andersson
+%% Copyright © 2010 Per Andersson
 %%
 %% This file is part of tcp_listener.
 %%
