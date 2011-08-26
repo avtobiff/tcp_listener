@@ -113,21 +113,17 @@ init(Args) ->
     case {Port, ListenSocket} of
         %% establish new listen socket
         {Port, undefined} when is_integer(Port) ->
-            case gen_tcp:listen(Port, TcpOpts) of
-                {ok, NewListenSocket} ->
-                    State1 = State0#listener_state{listener = NewListenSocket},
-                    {ok, create_async_acceptor(State1)};
-                {error, Reason} ->
-                    {stop, Reason}
-            end;
+            do_listen(Port, TcpOpts, State0);
         %% use supplied listen socket
         {undefined, ListenSocket} when is_port(ListenSocket) ->
             State1 = State0#listener_state{listener = ListenSocket},
             {ok, create_async_acceptor(State1)};
         {Port, ListenSocket} when is_integer(Port), is_port(ListenSocket) ->
             {stop, ambiguos_listen_socket};
-        {_, _} ->
-            {stop, bad_listen_socket}
+        %% no port or listen socket supplied,
+        %% establish new listen socket on default port
+        {undefined, undefined} ->
+            do_listen(?DEFAULT_PORT, TcpOpts, State0)
     end.
 
 
@@ -244,6 +240,28 @@ handle_call(Request, _From, State) -> {stop, {unknown_call, Request}, State}.
 %% ----------------------------------------------------------------------------
 %% INTERNAL
 %% ----------------------------------------------------------------------------
+
+%% ----------------------------------------------------------------------------
+-spec do_listen(Port :: integer, TcpOpts :: [atom() | {atom(), term()}],
+                State0 :: record(listener_state)) ->
+            Result :: {ok, record(listener_state)} | {stop, term()}.
+%% @private
+%% @doc
+%% Create listen on port with TCP options.
+%%
+%% Chainloads from init/1 when port is supplied.
+%% @end
+%% ----------------------------------------------------------------------------
+do_listen(Port, TcpOpts, State0) ->
+    case gen_tcp:listen(Port, TcpOpts) of
+        {ok, NewListenSocket} ->
+            State1 = State0#listener_state{listener = NewListenSocket},
+            {ok, create_async_acceptor(State1)};
+        {error, Reason} ->
+            {stop, Reason}
+    end.
+
+
 
 %% ----------------------------------------------------------------------------
 -spec create_async_acceptor(State :: record(listener_state)) ->
