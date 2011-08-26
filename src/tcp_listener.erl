@@ -153,6 +153,7 @@ terminate(_Reason, #listener_state{listener = ListenSocket}) ->
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
 
+
 %% ----------------------------------------------------------------------------
 -spec handle_cast({shutdown, Reason :: term()},
                   State :: record(listener_state)) -> ok.
@@ -224,6 +225,7 @@ handle_info(Info, State) ->
     {stop, {unknown_info, Info}, State}.
 
 
+
 %% ----------------------------------------------------------------------------
 -spec handle_call(Request :: term(), _, State :: record(listener_state)) ->
           Result :: {stop,
@@ -280,6 +282,7 @@ create_async_acceptor(State = #listener_state{listener = ListenSocket}) ->
             {error, NewRef} -> exit({async_accept, inet:format_error(NewRef)})
         end,
     State#listener_state{acceptor = Ref}.
+
 
 
 %% ----------------------------------------------------------------------------
