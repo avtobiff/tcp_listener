@@ -88,7 +88,7 @@ start_link(Name, Mod, Args, Opts) ->
 %% =============================================================================
 
 %% -----------------------------------------------------------------------------
--spec init(Args :: args()) -> {ok, record(listener_state)}.
+-spec init(Args :: args()) -> {ok, record(listener_state)} | {stop, term()}.
 %% @private
 %% @doc
 %% Creates listen socket and starts an asynchronous accept.
@@ -118,6 +118,7 @@ init(Args) ->
         {undefined, ListenSocket} when is_port(ListenSocket) ->
             State1 = State0#listener_state{listener = ListenSocket},
             {ok, create_async_acceptor(State1)};
+        %% error: supplied both port and listen socket
         {Port, ListenSocket} when is_integer(Port), is_port(ListenSocket) ->
             {stop, ambiguos_listen_socket};
         %% no port or listen socket supplied,
